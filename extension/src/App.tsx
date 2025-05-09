@@ -1,4 +1,4 @@
-import Popup from './popup'
+import Popup from './components/popup'
 
 function App() {
 

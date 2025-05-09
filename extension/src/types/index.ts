@@ -1,0 +1,1 @@
+export type SiteStats = Record<string, number>;

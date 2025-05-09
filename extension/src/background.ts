@@ -63,39 +63,40 @@ const updateCurrentDomain = (tabId: number): void => {
     });
 };
 
-const checkLimits = (siteData: Record<string, number>) => {
-    chrome.storage.local.get(['limits'], (result) => {
-        const limits = result['limits'] || {};
-        const overallLimit = limits['overall'] || Infinity;
-        const siteLimit = limits[currentDomain!] || Infinity;
+// const checkLimits = (siteData: Record<string, number>) => {
+//     chrome.storage.local.get(['limits'], (result) => {
+//         const limits = result['limits'] || {};
+//         const overallLimit = limits['overall'] || Infinity;
+//         const siteLimit = limits[currentDomain!] || Infinity;
 
-        const totalTime = Object.values(siteData).reduce((acc, ms) => acc + ms, 0);
-        const domainTime = siteData[currentDomain!] || 0;
+//         const totalTime = Object.values(siteData).reduce((acc, ms) => acc + ms, 0);
+//         const domainTime = siteData[currentDomain!] || 0;
 
-        if (domainTime > siteLimit) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icon.png',
-                title: 'Limit Exceeded!',
-                message: `You've spent too much time on ${currentDomain}`,
-                priority: 2
-            });
-        }
+//         if (domainTime > siteLimit) {
+//             chrome.notifications.create({
+//                 type: 'basic',
+//                 iconUrl: 'icon.png',
+//                 title: 'Limit Exceeded!',
+//                 message: `You've spent too much time on ${currentDomain}`,
+//                 priority: 2
+//             });
+//         }
 
-        if (totalTime > overallLimit) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icon.png',
-                title: 'Total Usage Limit Exceeded',
-                message: `You've used ${Math.floor(totalTime / 60000)} minutes today.`,
-                priority: 2
-            });
-        }
-    });
-};
+//         if (totalTime > overallLimit) {
+//             chrome.notifications.create({
+//                 type: 'basic',
+//                 iconUrl: 'icon.png',
+//                 title: 'Total Usage Limit Exceeded',
+//                 message: `You've used ${Math.floor(totalTime / 60000)} minutes today.`,
+//                 priority: 2
+//             });
+//         }
+//     });
+// };
 
 
 // Set up event listeners
+
 chrome.tabs.onActivated.addListener((activeInfo) => {
     updateCurrentDomain(activeInfo.tabId);
 });

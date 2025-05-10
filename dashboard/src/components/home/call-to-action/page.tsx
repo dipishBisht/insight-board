@@ -1,50 +1,87 @@
-import { Container } from "@/components/shared/container"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
+"use client";
 
-export default function CallToAction() {
+import { useRef, useState, useEffect } from "react";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Container } from "@/components/shared/container";
+import { cn } from "@/lib/utils";
+
+export default function CTA() {
+    const [isVisible, setIsVisible] = useState(false);
+    const sectionRef = useRef<HTMLElement>(null);
+
+    // Check if section is visible in viewport
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.unobserve(entry.target);
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (sectionRef.current) {
+            observer.observe(sectionRef.current);
+        }
+
+        return () => {
+            if (sectionRef.current) {
+                observer.unobserve(sectionRef.current);
+            }
+        };
+    }, []);
+
     return (
-        <section className="text-white my-20">
-            <Container>
-                <div className="max-w-4xl mx-auto text-center">
-                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6">
-                        Ready to Transform Your Data Experience?
+        <section
+            id="get-started"
+            className="bg-primary w-full text-primary-foreground py-12 mt-16 mb-32 relative overflow-hidden"
+            ref={sectionRef}
+        >
+            {/* Background decorations */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute -top-[10%] -right-[10%] w-[60%] h-[60%] rounded-full bg-primary-foreground/5 blur-3xl" />
+                <div className="absolute -bottom-[10%] -left-[10%] w-[60%] h-[60%] rounded-full bg-primary-foreground/5 blur-3xl" />
+            </div>
+
+            <Container className="relative z-10">
+                <div className={cn(
+                    "text-center transition-all duration-1000 transform",
+                    isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+                )}>
+                    <div className="inline-block mx-auto mb-6 rounded-full bg-primary-foreground/20 px-4 py-1.5">
+                        <p className="text-sm font-medium">
+                            14-day free trial • No credit card required
+                        </p>
+                    </div>
+
+                    <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+                        Ready to Transform Your Data into Actionable Insights?
                     </h2>
-                    <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-                        Join thousands of data professionals who are already using InsightBoard to make better decisions faster.
+
+                    <p className="text-xl md:text-2xl text-primary-foreground/80 mb-10 max-w-3xl mx-auto">
+                        Join thousands of companies using InsightBoard to make better decisions with their data.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Button size="lg" className="bg-primary hover:bg-primary/90 text-white" asChild>
-                            <Link href="#get-started">Start Your Free Trial</Link>
+                        <Button
+                            size="lg"
+                            className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-lg px-8 group"
+                        >
+                            Start Your Free Trial
+                            <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                         </Button>
-                        <Button variant="outline" size="lg" className="border-white text-white hover:bg-white/10" asChild>
-                            <Link href="#get-started">Schedule a Demo</Link>
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 text-lg px-8"
+                        >
+                            Schedule a Demo
                         </Button>
-                    </div>
-
-                    <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-slate-300">
-                        <div className="flex items-center gap-2">
-                            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current text-primary">
-                                <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 100-16 8 8 0 000 16zm-1-5h2v2h-2v-2zm0-8h2v6h-2V7z" />
-                            </svg>
-                            <span>No credit card required</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current text-primary">
-                                <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 100-16 8 8 0 000 16zm-1-5h2v2h-2v-2zm0-8h2v6h-2V7z" />
-                            </svg>
-                            <span>14-day free trial</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current text-primary">
-                                <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 100-16 8 8 0 000 16zm-1-5h2v2h-2v-2zm0-8h2v6h-2V7z" />
-                            </svg>
-                            <span>Cancel anytime</span>
-                        </div>
                     </div>
                 </div>
             </Container>
         </section>
-    )
+    );
 }

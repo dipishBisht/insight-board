@@ -4,7 +4,7 @@ import { Container } from "@/components/shared/container"
 
 export default function Usage() {
     return (
-        <section className="bg-slate-50 py-20">
+        <section className="py-20">
             <Container>
                 <div className="max-w-3xl mx-auto text-center mb-16">
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 text-deep">How to Use InsightBoard</h2>

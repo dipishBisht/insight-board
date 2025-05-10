@@ -3,7 +3,7 @@ import { CheckCircle2 } from "lucide-react"
 
 export default function Benefits() {
     return (
-        <section className="bg-white py-20">
+        <section className="py-20">
             <Container>
                 <div className="max-w-3xl mx-auto text-center mb-16">
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 text-deep">Why Choose InsightBoard</h2>

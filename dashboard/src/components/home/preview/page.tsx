@@ -7,7 +7,7 @@ import Link from "next/link"
 
 export default function Preview() {
     return (
-        <section className="bg-white my-20">
+        <section className=" my-20">
             <Container>
                 <div className="max-w-3xl mx-auto text-center mb-16">
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 text-deep">See InsightBoard in Action</h2>

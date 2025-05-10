@@ -1,6 +1,7 @@
 import About from "@/components/home/about";
 import Benefits from "@/components/home/benefits";
 import CallToAction from "@/components/home/call-to-action/page";
+import Features from "@/components/home/features";
 import Hero from "@/components/home/hero";
 import HowItWorks from "@/components/home/how-it-works";
 import Preview from "@/components/home/preview/page";
@@ -13,6 +14,7 @@ export default function Home() {
       <About />
       <HowItWorks />
       <Benefits />
+      <Features />
       <Usage />
       <Preview />
       <CallToAction />

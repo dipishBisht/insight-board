@@ -1,106 +1,143 @@
-import { Github, Twitter, Mail, MapPin, Phone } from "lucide-react"
-import Logo from "@/components/shared/logo"
-import Link from "next/link"
+"use client";
 
-export default function Footer() {
+import Link from "next/link";
+import { BarChart2, Twitter, Linkedin, Github, Mail } from "lucide-react";
+import { Container } from "@/components/shared/container";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+export function Footer() {
+    const currentYear = new Date().getFullYear();
+
     return (
-        <footer id="contact" className="bg-slate-900 text-slate-300">
-            <div className="container-custom py-12 md:py-16">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-                    <div className="space-y-4">
-                        <Logo textColor="text-white" iconColor="text-primary" />
-                        <p className="text-slate-400 max-w-xs">
-                            Transform your data into actionable insights with powerful, intuitive dashboards.
+        <footer className="bg-muted/30 dark:bg-muted/10 pt-16 pb-12 border-t border-border">
+            <Container>
+                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-8 mb-12">
+                    <div className="md:col-span-4 lg:col-span-4">
+                        <Link href="/" className="flex items-center gap-2 mb-6">
+                            <BarChart2 className="h-8 w-8 text-primary" />
+                            <span className="font-bold text-xl">InsightBoard</span>
+                        </Link>
+
+                        <p className="text-muted-foreground mb-6">
+                            Transform your data into actionable insights with powerful, intuitive dashboards
+                            that make decision-making simple.
                         </p>
+
                         <div className="flex gap-4">
-                            <Link href="https://github.com" className="text-slate-400 hover:text-white transition-colors">
-                                <Github className="h-5 w-5" />
-                                <span className="sr-only">GitHub</span>
-                            </Link>
-                            <Link href="https://twitter.com" className="text-slate-400 hover:text-white transition-colors">
+                            <Button variant="ghost" size="icon">
                                 <Twitter className="h-5 w-5" />
-                                <span className="sr-only">Twitter</span>
-                            </Link>
-                            <Link href="mailto:info@insightboard.com" className="text-slate-400 hover:text-white transition-colors">
+                            </Button>
+                            <Button variant="ghost" size="icon">
+                                <Linkedin className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon">
+                                <Github className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon">
                                 <Mail className="h-5 w-5" />
-                                <span className="sr-only">Email</span>
-                            </Link>
+                            </Button>
                         </div>
                     </div>
 
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4 text-white">Product</h3>
+                    <div className="md:col-span-2 lg:col-span-2">
+                        <h3 className="font-semibold mb-4">Product</h3>
                         <ul className="space-y-3">
-                            {productLinks.map((link, index) => (
-                                <li key={index}>
-                                    <Link href={link.href} className="text-slate-400 hover:text-white transition-colors">
-                                        {link.label}
-                                    </Link>
-                                </li>
-                            ))}
+                            <li>
+                                <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Features
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Pricing
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Integrations
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Changelog
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Roadmap
+                                </Link>
+                            </li>
                         </ul>
                     </div>
 
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4 text-white">Company</h3>
+                    <div className="md:col-span-2 lg:col-span-2">
+                        <h3 className="font-semibold mb-4">Company</h3>
                         <ul className="space-y-3">
-                            {companyLinks.map((link, index) => (
-                                <li key={index}>
-                                    <Link href={link.href} className="text-slate-400 hover:text-white transition-colors">
-                                        {link.label}
-                                    </Link>
-                                </li>
-                            ))}
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    About
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Blog
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Careers
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Customers
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                                    Contact
+                                </Link>
+                            </li>
                         </ul>
                     </div>
 
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4 text-white">Contact</h3>
-                        <ul className="space-y-3">
-                            <li className="flex gap-2">
-                                <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
-                                <span>123 Analytics Street, Data City, 94107</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <Phone className="h-5 w-5 text-primary flex-shrink-0" />
-                                <span>+1 (555) 123-4567</span>
-                            </li>
-                            <li className="flex gap-2">
-                                <Mail className="h-5 w-5 text-primary flex-shrink-0" />
-                                <span>info@insightboard.com</span>
-                            </li>
-                        </ul>
+                    <div className="md:col-span-4 lg:col-span-4">
+                        <h3 className="font-semibold mb-4">Subscribe to our newsletter</h3>
+                        <p className="text-muted-foreground mb-4">
+                            Get the latest news, articles, and resources, sent to your inbox every month.
+                        </p>
+                        <div className="flex gap-2">
+                            <Input
+                                type="email"
+                                placeholder="Enter your email"
+                                className="w-full"
+                            />
+                            <Button>
+                                Subscribe
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
-                <div className="border-t border-slate-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-                    <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} InsightBoard. All rights reserved.</p>
-                    <div className="flex gap-6 mt-4 md:mt-0">
-                        <Link href="/privacy" className="text-sm text-slate-500 hover:text-white transition-colors">
-                            Privacy Policy
-                        </Link>
-                        <Link href="/terms" className="text-sm text-slate-500 hover:text-white transition-colors">
+                <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center">
+                    <p className="text-sm text-muted-foreground mb-4 md:mb-0">
+                        © {currentYear} InsightBoard. All rights reserved.
+                    </p>
+
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center text-sm text-muted-foreground">
+                        <Link href="#" className="hover:text-foreground transition-colors">
                             Terms of Service
                         </Link>
+                        <Link href="#" className="hover:text-foreground transition-colors">
+                            Privacy Policy
+                        </Link>
+                        <Link href="#" className="hover:text-foreground transition-colors">
+                            Cookies
+                        </Link>
                     </div>
                 </div>
-            </div>
+            </Container>
         </footer>
-    )
+    );
 }
-
-const productLinks = [
-    { label: "Features", href: "#" },
-    { label: "Pricing", href: "#" },
-    { label: "Tutorials", href: "#" },
-    { label: "Case Studies", href: "#" },
-    { label: "Documentation", href: "#" },
-]
-
-const companyLinks = [
-    { label: "About Us", href: "#" },
-    { label: "Blog", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Press", href: "#" },
-    { label: "Partners", href: "#" },
-]

@@ -64,9 +64,11 @@ export function Navbar() {
 
                     <div className="hidden md:flex items-center gap-4">
                         <ModeToggle />
-                        <Button variant="outline" size="sm">
-                            Login
-                        </Button>
+                        <Link href="/login">
+                            <Button variant="outline" size="sm">
+                                Login
+                            </Button>
+                        </Link>
                         <Button size="sm">Get Started</Button>
                     </div>
 

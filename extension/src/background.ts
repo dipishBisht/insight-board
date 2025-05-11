@@ -1,8 +1,12 @@
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from './lib/firebase';
+
 // Background script for InsightBoard extension
 
 let currentDomain: string | null = null;
 let startTime: number | null = null;
 let isPaused: boolean = false;
+const userId = 'some-unique-id';
 
 // Initialize extension state
 chrome.storage.local.get(['paused'], (result) => {
@@ -26,7 +30,8 @@ const getDomainFromUrl = (url: string): string => {
 const saveTimeSpent = (): void => {
     if (!currentDomain || !startTime || isPaused) return;
 
-    const duration = Date.now() - startTime;
+    const now = Date.now();
+    const duration = now - startTime;
     if (duration < 1000) return; // Ignore very short durations (< 1 second)
 
     const todayKey = getTodayKey();
@@ -38,6 +43,8 @@ const saveTimeSpent = (): void => {
         chrome.storage.local.set({ [todayKey]: todayData }, () => {
             console.log(`[InsightBoard] Saved ${Math.round(duration / 1000)}s for ${currentDomain}`);
         });
+
+        startTime = now;
     });
 };
 
@@ -47,7 +54,7 @@ const updateCurrentDomain = (tabId: number): void => {
     saveTimeSpent();
 
     chrome.tabs.get(tabId, (tab) => {
-        if (chrome.runtime.lastError) {
+        if (chrome.runtime.lastError || !tab || !tab.url) {
             console.error('[InsightBoard] Error getting tab:', chrome.runtime.lastError);
             currentDomain = null;
             return;
@@ -63,37 +70,26 @@ const updateCurrentDomain = (tabId: number): void => {
     });
 };
 
-// const checkLimits = (siteData: Record<string, number>) => {
-//     chrome.storage.local.get(['limits'], (result) => {
-//         const limits = result['limits'] || {};
-//         const overallLimit = limits['overall'] || Infinity;
-//         const siteLimit = limits[currentDomain!] || Infinity;
+// Function to sync current day's usage to Firestore
+const syncToFirebase = async () => {
+    const todayKey = `usage-${new Date().toISOString().split('T')[0]}`;
 
-//         const totalTime = Object.values(siteData).reduce((acc, ms) => acc + ms, 0);
-//         const domainTime = siteData[currentDomain!] || 0;
+    chrome.storage.local.get([todayKey], async (result) => {
+        const usageData = result[todayKey];
 
-//         if (domainTime > siteLimit) {
-//             chrome.notifications.create({
-//                 type: 'basic',
-//                 iconUrl: 'icon.png',
-//                 title: 'Limit Exceeded!',
-//                 message: `You've spent too much time on ${currentDomain}`,
-//                 priority: 2
-//             });
-//         }
+        if (!usageData) return;
 
-//         if (totalTime > overallLimit) {
-//             chrome.notifications.create({
-//                 type: 'basic',
-//                 iconUrl: 'icon.png',
-//                 title: 'Total Usage Limit Exceeded',
-//                 message: `You've used ${Math.floor(totalTime / 60000)} minutes today.`,
-//                 priority: 2
-//             });
-//         }
-//     });
-// };
-
+        try {
+            await setDoc(doc(db, 'users', userId, 'usage', todayKey), {
+                ...usageData,
+                syncedAt: new Date().toISOString()
+            });
+            console.log('[InsightBoard] Synced usage to Firebase');
+        } catch (err) {
+            console.error('[InsightBoard] Sync failed:', err);
+        }
+    });
+};
 
 // Set up event listeners
 
@@ -165,3 +161,8 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         updateCurrentDomain(tabs[0].id!);
     }
 });
+
+// Sync every 60 seconds
+setInterval(() => {
+    syncToFirebase();
+}, 60000);

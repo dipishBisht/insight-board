@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
-import { Navbar } from '@/components/shared/navbar';
-import { Footer } from '@/components/shared/footer';
 import { ThemeProvider } from '@/components/shared/theme-provider';
+import AuthWrapper from '@/components/auth/wrapper';
 import './globals.css';
 
 const poppins = Poppins({
@@ -24,11 +23,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={`${poppins.className} overflow-x-hidden`}>
-        <ThemeProvider attribute="class" defaultTheme="system">
-          <Navbar />
-          {children}
-          <Footer />
-        </ThemeProvider>
+        <AuthWrapper>
+          <ThemeProvider attribute="class" defaultTheme="system">
+            <main>
+              {children}
+            </main>
+          </ThemeProvider>
+        </AuthWrapper>
       </body>
     </html>
   );

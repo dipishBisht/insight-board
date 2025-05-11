@@ -40,11 +40,11 @@ export default function Preview() {
 
                                     <Card className="border-slate-100">
                                         <CardContent className="p-4">
-                                            <img
+                                            {/* <img
                                                 src={`/placeholder.svg?height=300&width=500&text=${encodeURIComponent(tab.label)}`}
                                                 alt={`${tab.label} Preview`}
                                                 className="w-full h-auto rounded"
-                                            />
+                                            /> */}
                                         </CardContent>
                                     </Card>
                                 </div>

@@ -1,3 +1,5 @@
+import { Navbar } from '@/components/shared/navbar';
+import { Footer } from '@/components/shared/footer';
 import About from "@/components/home/about";
 import Benefits from "@/components/home/benefits";
 import CallToAction from "@/components/home/call-to-action/page";
@@ -10,6 +12,7 @@ import Usage from "@/components/home/usage";
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-between">
+      <Navbar />
       <Hero />
       <About />
       <HowItWorks />
@@ -18,6 +21,7 @@ export default function Home() {
       <Usage />
       <Preview />
       <CallToAction />
+      <Footer />
     </div>
   );
 }

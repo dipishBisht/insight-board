@@ -36,11 +36,11 @@ export default function Usage() {
                     <div className="order-1 lg:order-2">
                         <Card className="border-slate-100 shadow-sm">
                             <CardContent className="p-6">
-                                <img
-                                    src="/placeholder.svg?height=400&width=600"
+                                {/* <img
+                                    src=""
                                     alt="InsightBoard Usage Example"
                                     className="w-full h-auto rounded"
-                                />
+                                /> */}
                             </CardContent>
                         </Card>
                     </div>

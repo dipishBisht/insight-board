@@ -28,7 +28,7 @@ function App() {
 
   // Once loaded, show appropriate component based on auth state
   return (
-    <main className='w-80 h-full'>
+    <main className='w-80 h-full rounded-md'>
       {user ? <Popup /> : <Auth />}
     </main>
   );

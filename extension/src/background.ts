@@ -124,31 +124,34 @@ chrome.idle.onStateChanged.addListener((state) => {
 });
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
     if (message.type === 'togglePause') {
+      const handlePause = async () => {
         isPaused = message.value;
-        chrome.storage.local.set({ paused: isPaused });
-
+        await chrome.storage.local.set({ paused: isPaused });
+  
         if (isPaused) {
-            saveTimeSpent();
-            currentDomain = null;
-            startTime = null;
-            console.log('[InsightBoard] Tracking paused');
-        } else if (!isPaused) {
-            // Resume tracking current tab
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs.length > 0 && tabs[0].url) {
-                    currentDomain = getDomainFromUrl(tabs[0].url);
-                    startTime = Date.now();
-                    console.log(`[InsightBoard] Tracking resumed for: ${currentDomain}`);
-                }
-            });
+          saveTimeSpent();
+          currentDomain = null;
+          startTime = null;
+          console.log('[InsightBoard] Tracking paused');
+        } else {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length > 0 && tabs[0].url) {
+              currentDomain = getDomainFromUrl(tabs[0].url);
+              startTime = Date.now();
+              console.log(`[InsightBoard] Tracking resumed for: ${currentDomain}`);
+            }
+          });
         }
-
+  
         sendResponse({ success: true, paused: isPaused });
+      };
+  
+      handlePause();
+      return true; // <- Crucial to keep the message channel open for async
     }
-    return true; // Required for async sendResponse
-});
+  });
 
 // Set up periodic saving (every 30 seconds)
 setInterval(saveTimeSpent, 30000);

@@ -68,12 +68,21 @@ export default function Popup() {
     // Toggle pause status
     const togglePause = () => {
         const newStatus = !isPaused;
+        console.log('[Popup] Toggling pause:', newStatus);
+      
         chrome.runtime?.sendMessage({ type: 'togglePause', value: newStatus }, (response) => {
-            if (response?.success) {
-                setIsPaused(newStatus);
-            }
+          if (chrome.runtime.lastError) {
+            console.error('[Popup] Runtime error:', chrome.runtime.lastError.message);
+            return;
+          }
+      
+          console.log('[Popup] togglePause response:', response);
+          if (response?.success) {
+            setIsPaused(response.paused); // ensure state syncs with background
+          }
         });
-    };
+      };
+      
 
     // Toggle dark mode
     const toggleDarkMode = () => {
@@ -102,16 +111,16 @@ export default function Popup() {
     // Loading state
     if (isLoading) {
         return (
-            <div className="p-4 w-80 h-56 flex items-center justify-center bg-white dark:bg-gray-900 rounded-xl shadow-lg animate-pulse">
+            <div className="p-4 w-full h-56 flex items-center justify-center bg-white dark:bg-gray-900 rounded-xl shadow-lg animate-pulse">
                 <div className="text-gray-500 dark:text-gray-400">Loading...</div>
             </div>
         );
     }
 
     return (
-        <div className={`w-80 font-sans rounded-xl shadow-lg overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
+        <div className={`w-full p-4 font-sans rounded-xl shadow-lg overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
             {/* Header */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+            <div className="border-b border-gray-100 dark:border-gray-800">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white">

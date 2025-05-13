@@ -1,31 +1,69 @@
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../../lib/firebase';
+import { useState } from 'react';
+import {
+  useSignInWithEmailAndPassword,
+  useCreateUserWithEmailAndPassword,
+} from 'react-firebase-hooks/auth';
+import { auth } from '../../lib/firebase';
+import AuthContainer from './auth-container';
+import AuthForm from './auth-form';
 
 function Auth() {
-    const handleGoogleLogin = async () => {
-        try {
-            await signInWithPopup(auth, googleProvider);
-        } catch (err: any) {
-            alert(err.message);
-        }
-    };
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    return (
-        <div className="w-full h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg text-center">
-                <h1 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
-                    Welcome to InsightBoard
-                </h1>
-                <button
-                    onClick={handleGoogleLogin}
-                    className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition text-gray-700 dark:text-white font-medium"
-                >
-                    <img className='size-8' src="/images/google.webp" alt="" />
-                    Sign in with Google
-                </button>
-            </div>
-        </div>
-    );
+  const [signInWithEmailAndPassword, , loadingSignIn, errorSignIn] =
+    useSignInWithEmailAndPassword(auth);
+
+  const [createUserWithEmailAndPassword, , loadingSignup, errorSignup] =
+    useCreateUserWithEmailAndPassword(auth);
+
+  const handleAuth = async () => {
+    setErrorMessage(null);
+    try {
+      if (isSignup) {
+        await createUserWithEmailAndPassword(email, password);
+      } else {
+        await signInWithEmailAndPassword(email, password);
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+    }
+  };
+
+  const toggleAuthMode = () => {
+    setIsSignup(!isSignup);
+    setErrorMessage(null);
+  };
+
+  const finalError =
+    errorMessage ||
+    errorSignIn?.message ||
+    errorSignup?.message ||
+    (errorSignIn && 'Failed to sign in. Please check your credentials.') ||
+    (errorSignup && 'Failed to create account. Please try again.');
+
+  const loading = loadingSignIn || loadingSignup;
+
+  return (
+    <AuthContainer
+      title={isSignup ? 'Create Your Account' : 'Welcome Back'}
+      subtitle={isSignup ? 'Join us today!' : 'Sign in to continue'}
+    >
+      <AuthForm
+        isSignup={isSignup}
+        email={email}
+        setEmail={setEmail}
+        password={password}
+        setPassword={setPassword}
+        handleAuth={handleAuth}
+        loading={loading}
+        error={finalError}
+        toggleAuthMode={toggleAuthMode}
+      />
+    </AuthContainer>
+  );
 }
 
 export default Auth;

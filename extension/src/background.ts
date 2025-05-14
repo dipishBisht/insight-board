@@ -1,12 +1,10 @@
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from './lib/firebase';
+
 
 // Background script for InsightBoard extension
 
 let currentDomain: string | null = null;
 let startTime: number | null = null;
 let isPaused: boolean = false;
-const userId = 'some-unique-id';
 
 // Initialize extension state
 chrome.storage.local.get(['paused'], (result) => {
@@ -70,27 +68,6 @@ const updateCurrentDomain = (tabId: number): void => {
     });
 };
 
-// Function to sync current day's usage to Firestore
-const syncToFirebase = async () => {
-    const todayKey = `usage-${new Date().toISOString().split('T')[0]}`;
-
-    chrome.storage.local.get([todayKey], async (result) => {
-        const usageData = result[todayKey];
-
-        if (!usageData) return;
-
-        try {
-            await setDoc(doc(db, 'users', userId, 'usage', todayKey), {
-                ...usageData,
-                syncedAt: new Date().toISOString()
-            });
-            console.log('[InsightBoard] Synced usage to Firebase');
-        } catch (err) {
-            console.error('[InsightBoard] Sync failed:', err);
-        }
-    });
-};
-
 // Set up event listeners
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -124,34 +101,31 @@ chrome.idle.onStateChanged.addListener((state) => {
 });
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
     if (message.type === 'togglePause') {
-      const handlePause = async () => {
         isPaused = message.value;
-        await chrome.storage.local.set({ paused: isPaused });
-  
+        chrome.storage.local.set({ paused: isPaused });
+
         if (isPaused) {
-          saveTimeSpent();
-          currentDomain = null;
-          startTime = null;
-          console.log('[InsightBoard] Tracking paused');
-        } else {
-          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs.length > 0 && tabs[0].url) {
-              currentDomain = getDomainFromUrl(tabs[0].url);
-              startTime = Date.now();
-              console.log(`[InsightBoard] Tracking resumed for: ${currentDomain}`);
-            }
-          });
+            saveTimeSpent();
+            currentDomain = null;
+            startTime = null;
+            console.log('[InsightBoard] Tracking paused');
+        } else if (!isPaused) {
+            // Resume tracking current tab
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs.length > 0 && tabs[0].url) {
+                    currentDomain = getDomainFromUrl(tabs[0].url);
+                    startTime = Date.now();
+                    console.log(`[InsightBoard] Tracking resumed for: ${currentDomain}`);
+                }
+            });
         }
-  
+
         sendResponse({ success: true, paused: isPaused });
-      };
-  
-      handlePause();
-      return true; // <- Crucial to keep the message channel open for async
     }
-  });
+    return true; // Required for async sendResponse
+});
 
 // Set up periodic saving (every 30 seconds)
 setInterval(saveTimeSpent, 30000);
@@ -164,8 +138,3 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         updateCurrentDomain(tabs[0].id!);
     }
 });
-
-// Sync every 60 seconds
-setInterval(() => {
-    syncToFirebase();
-}, 60000);

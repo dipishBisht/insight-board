@@ -1,0 +1,23 @@
+{
+  "name": "insight-board",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "extension": "cd extension && npm run dev",
+    "build":"cd extension && npm run build",
+    "dashboard": "cd dashboard && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dipishBisht/insight-board.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dipishBisht/insight-board/issues"
+  },
+  "homepage": "https://github.com/dipishBisht/insight-board#readme"
+}

@@ -22,8 +22,10 @@ export default defineConfig({
         background: './src/background.ts'
       },
       output: {
-        entryFileNames: 'assets/[name].js'
+        entryFileNames: 'assets/[name].js',
+        format: 'es'
       }
-    }
+    },
+    target: 'esnext'
   }
 })

@@ -9,8 +9,8 @@ import { auth, db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 export default function Popup() {
-    const [stats, setStats] = useState<any>({});  // Store website stats
-    const [total, setTotal] = useState<any>(0);  // Store total time for today
+    const [stats, setStats] = useState<any>({});
+    const [total, setTotal] = useState<any>(0);
     const [isPaused, setIsPaused] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [darkMode, setDarkMode] = useState<boolean>(false);
@@ -37,7 +37,7 @@ export default function Popup() {
                     const user = auth.currentUser;
                     if (user) {
                         const today = new Date().toISOString().split('T')[0]; // '2025-05-11'
-                        const usageRef = doc(db, 'usage', `${user.uid}_${today}`);
+                        const usageRef = doc(db, 'users', user.uid, 'usage', today);
 
                         setDoc(usageRef, {
                             userId: user.uid,

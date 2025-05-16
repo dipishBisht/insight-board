@@ -2,24 +2,26 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 
-interface TableColumn {
-    key: string;
+export interface TableColumn<T> {
+    key: keyof T;
     title: string;
-    render?: (value: any, item: any) => React.ReactNode;
 }
 
-interface DataTableProps {
-    data: any[];
-    columns: TableColumn[];
+interface DataTableProps<T> {
+    data: T[];
+    columns: TableColumn<T>[];
     searchable?: boolean;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data, columns, searchable = true }) => {
-    const [sortKey, setSortKey] = useState<string | null>(null);
+const DataTable = <T extends Record<string, unknown>>({
+    columns,
+    searchable = true,
+}: DataTableProps<T>) => {
+    const [sortKey, setSortKey] = useState<keyof T | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const handleSort = (key: string) => {
+    const handleSort = (key: keyof T) => {
         if (sortKey === key) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
         } else {
@@ -27,34 +29,6 @@ const DataTable: React.FC<DataTableProps> = ({ data, columns, searchable = true 
             setSortDirection('asc');
         }
     };
-
-    const sortedData = [...data].sort((a, b) => {
-        if (!sortKey) return 0;
-
-        const aValue = a[sortKey];
-        const bValue = b[sortKey];
-
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-            return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-        }
-
-        const aString = String(aValue).toLowerCase();
-        const bString = String(bValue).toLowerCase();
-
-        if (sortDirection === 'asc') {
-            return aString.localeCompare(bString);
-        } else {
-            return bString.localeCompare(aString);
-        }
-    });
-
-    const filteredData = sortedData.filter(item => {
-        if (!searchQuery) return true;
-
-        return Object.values(item).some(value =>
-            String(value).toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    });
 
     return (
         <div className="w-full">
@@ -79,7 +53,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, columns, searchable = true 
                         <tr className="border-b border-gray-200">
                             {columns.map((column) => (
                                 <th
-                                    key={column.key}
+                                    key={String(column.key)}
                                     className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
                                     onClick={() => handleSort(column.key)}
                                 >
@@ -87,10 +61,11 @@ const DataTable: React.FC<DataTableProps> = ({ data, columns, searchable = true 
                                         <span>{column.title}</span>
                                         {sortKey === column.key && (
                                             <span className="ml-1">
-                                                {sortDirection === 'asc' ?
-                                                    <ChevronUp className="h-4 w-4" /> :
+                                                {sortDirection === 'asc' ? (
+                                                    <ChevronUp className="h-4 w-4" />
+                                                ) : (
                                                     <ChevronDown className="h-4 w-4" />
-                                                }
+                                                )}
                                             </span>
                                         )}
                                     </div>
@@ -98,28 +73,6 @@ const DataTable: React.FC<DataTableProps> = ({ data, columns, searchable = true 
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
-                        {filteredData.length > 0 ? (
-                            filteredData.map((item, index) => (
-                                <tr
-                                    key={index}
-                                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                                >
-                                    {columns.map((column) => (
-                                        <td key={column.key} className="py-4 px-4 text-sm text-gray-800">
-                                            {column.render ? column.render(item[column.key], item) : item[column.key]}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={columns.length} className="py-4 px-4 text-center text-sm text-gray-500">
-                                    No data available
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
                 </table>
             </div>
         </div>

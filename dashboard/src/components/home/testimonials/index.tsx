@@ -118,7 +118,7 @@ export default function Testimonials() {
                                             <Card className="border-none shadow-none">
                                                 <CardContent className="p-0">
                                                     <blockquote className="text-xl md:text-2xl font-medium text-center mb-8 italic">
-                                                        "{testimonial.quote}"
+                                                        &quot;{testimonial.quote}&quot;
                                                     </blockquote>
 
                                                     <div className="flex flex-col items-center">

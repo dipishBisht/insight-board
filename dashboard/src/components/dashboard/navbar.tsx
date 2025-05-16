@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, ChevronDown, Menu, X } from 'lucide-react';
+import { Bell, ChevronDown, Menu } from 'lucide-react';
 
 interface NavbarProps {
     onMenuToggle: () => void;

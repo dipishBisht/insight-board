@@ -3,7 +3,7 @@ import StatCard from './StatCard';
 import LineChart from './LineChart';
 import BarChart from './BarChart';
 import DonutChart from './DonutChart';
-import DataTable from './DataTable';
+import DataTable, { TableColumn } from './DataTable';
 import ActivityTimeline from './ActivityTimeline';
 import {
     statsData,
@@ -17,9 +17,8 @@ import { formatCurrency } from '@/utils/formatters';
 import { ShoppingCart, TrendingUp, DollarSign } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
-    // const currencyFormatter = (value: number) => formatCurrency(value);
 
-    const productColumns = [
+    const productColumns: TableColumn<typeof topProducts[number]>[] = [
         { key: 'name', title: 'Product Name' },
         { key: 'category', title: 'Category' },
         { key: 'revenue', title: 'Revenue' },

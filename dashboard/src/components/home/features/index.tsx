@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import {
-  Clock, BarChart2, LineChart, Activity, Zap, Lock,
-  Tag, Users, PieChart, Share2, Pause, Settings
+  Clock, BarChart2, Activity, Zap, Lock,
+  Tag, Settings,
+  LucideIcon
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Container } from "@/components/shared/container";
@@ -186,7 +187,7 @@ export default function Features() {
 }
 
 interface FeatureCardProps {
-  icon: React.FC<any>;
+  icon: LucideIcon;
   title: string;
   description: string;
   iconColor: string;

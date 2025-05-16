@@ -14,11 +14,12 @@ import Link from "next/link";
 export default function LoginForm() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
 
     const [signInWithEmailAndPassword, user, loading] = useSignInWithEmailAndPassword(auth);
-
+    console.log(user);
+    
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -29,9 +30,13 @@ export default function LoginForm() {
                 throw new Error("Invalid credentials");
             }
             router.push("/dashboard");
-        } catch (error: any) {
-            console.error("Error logging in:", error);
-            setError(error.message);
+        } catch (err) {
+            console.error("Error logging in:", err);
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("An unknown error occurred.");
+            }
         }
     };
 
@@ -93,7 +98,7 @@ export default function LoginForm() {
 
                         {error && (
                             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                                {error?.message}
+                                {error}
                             </div>
                         )}
                     </CardContent>

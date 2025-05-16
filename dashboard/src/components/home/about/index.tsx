@@ -10,7 +10,7 @@ export default function About() {
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6 text-deep">What is InsightBoard?</h2>
                     <p className="text-lg text-slate-600">
                         InsightBoard is a powerful data visualization platform that transforms complex data into clear, actionable
-                        insights. Whether you're tracking business metrics, analyzing trends, or presenting findings to
+                        insights. Whether you&apos;re tracking business metrics, analyzing trends, or presenting findings to
                         stakeholders, InsightBoard makes it simple to understand and communicate your data.
                     </p>
                 </div>

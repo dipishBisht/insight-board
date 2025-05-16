@@ -1,5 +1,4 @@
 import React from "react";
-import { navigation } from "@/data/dashboard";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import DashbaordSidebar from "@/components/dashboard/sidebar";
 

@@ -41,7 +41,7 @@ const DonutChart: React.FC<DonutChartProps> = ({
     const total = data.reduce((sum, item) => sum + item.value, 0);
     let startAngle = 0;
 
-    const segments = data.map((item, i) => {
+    const segments = data.map((item) => {
         const percentage = total > 0 ? item.value / total : 0;
         const dashArray = circumference;
         const dashOffset = circumference * (1 - percentage);

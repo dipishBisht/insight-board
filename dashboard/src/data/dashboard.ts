@@ -1,4 +1,4 @@
-import { BarChart3, Home, LayoutDashboard, PieChart, Settings, Users } from 'lucide-react';
+import { BarChart3, LayoutDashboard, PieChart, Settings, Users } from 'lucide-react';
 
 export const navigation = [
     { name: 'Dashboard', href: '#', icon: LayoutDashboard, current: true },

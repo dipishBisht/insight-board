@@ -1,16 +1,55 @@
+
 let currentDomain: string | null = null;
 let startTime: number | null = null;
 let isPaused: boolean = false;
+let midnightTimer: NodeJS.Timeout | null = null;
+
+
+const MessageType = {
+    TOGGLE_PAUSE: 'togglePause',
+    FORCE_SYNC: 'forceSync',
+    USER_LOGGED_IN: 'userLoggedIn',
+    DAY_CHANGED: 'dayChanged',
+    SYNC_COMPLETE: 'syncComplete'
+};
+
+const getLocalDate = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getTodayKey = (): string => {
+    return `usage-${getLocalDate()}`;
+};
+
+const getMillisToMidnight = (): number => {
+    const now = new Date();
+    const midnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0, 0, 0, 0
+    );
+    return midnight.getTime() - now.getTime();
+};
 
 // Initialize extension state
 chrome.storage.local.get(['paused'], (result) => {
     isPaused = result.paused || false;
     console.log('[InsightBoard] Extension initialized, paused status:', isPaused);
-});
 
-const getTodayKey = (): string => {
-    return `usage-${new Date().toISOString().split('T')[0]}`;
-};
+    // Make sure we have today's storage key initialized
+    const todayKey = getTodayKey();
+    chrome.storage.local.get([todayKey], (result) => {
+        if (!result[todayKey]) {
+            chrome.storage.local.set({ [todayKey]: {} });
+            console.log(`[InsightBoard] Created today's storage key: ${todayKey}`);
+        }
+    });
+});
 
 const getDomainFromUrl = (url: string): string => {
     try {
@@ -25,7 +64,7 @@ const saveTimeSpent = (): void => {
 
     const now = Date.now();
     const duration = now - startTime;
-    if (duration < 1000) return;
+    if (duration < 1000) return; // Skip very short durations
 
     const todayKey = getTodayKey();
 
@@ -43,7 +82,7 @@ const saveTimeSpent = (): void => {
 
 const saveToFirestoreViaPopup = (data: Record<string, number>) => {
     chrome.runtime.sendMessage({
-        type: 'saveToFirestore',
+        type: MessageType.FORCE_SYNC,
         payload: {
             key: getTodayKey(),
             sites: data,
@@ -53,6 +92,11 @@ const saveToFirestoreViaPopup = (data: Record<string, number>) => {
             console.error('[Background] Save failed:', chrome.runtime.lastError.message);
         } else {
             console.log('[Background] Save message sent:', res);
+
+            // Notify popup that data is synced
+            chrome.runtime.sendMessage({
+                type: MessageType.SYNC_COMPLETE
+            });
         }
     });
 };
@@ -73,6 +117,7 @@ const updateCurrentDomain = (tabId: number): void => {
     });
 };
 
+// Tab events
 chrome.tabs.onActivated.addListener((activeInfo) => {
     updateCurrentDomain(activeInfo.tabId);
 });
@@ -86,6 +131,7 @@ chrome.tabs.onUpdated.addListener((_, changeInfo, tab) => {
     }
 });
 
+// Idle state handling
 chrome.idle.onStateChanged.addListener((state) => {
     if (state === 'idle' || state === 'locked') {
         saveTimeSpent();
@@ -103,8 +149,10 @@ chrome.idle.onStateChanged.addListener((state) => {
     }
 });
 
+// Message handling
 chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
-    if (message.type === 'togglePause') {
+    // Handle pause/resume
+    if (message.type === MessageType.TOGGLE_PAUSE) {
         isPaused = message.value;
         chrome.storage.local.set({ paused: isPaused });
 
@@ -125,12 +173,23 @@ chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
 
         sendResponse({ success: true, paused: isPaused });
     }
-    return true;
-});
+    // Handle manual sync
+    else if (message.type === MessageType.FORCE_SYNC) {
+        saveTimeSpent(); // Save latest time first
 
-// Listen for login events
-chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
-    if (message.type === 'userLoggedIn') {
+        const todayKey = getTodayKey();
+        chrome.storage.local.get([todayKey], (result) => {
+            const siteData = result[todayKey] || {};
+            if (Object.keys(siteData).length > 0) {
+                // Forward to Firestore
+                saveToFirestoreViaPopup(siteData);
+                console.log('[InsightBoard] Manual sync triggered');
+            }
+            sendResponse({ success: true });
+        });
+    }
+    // Handle user login
+    else if (message.type === MessageType.USER_LOGGED_IN) {
         // Force a sync of local data with Firestore data
         const todayKey = getTodayKey();
         chrome.storage.local.get([todayKey], (result) => {
@@ -138,67 +197,75 @@ chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
             console.log('[InsightBoard] User logged in, syncing data');
             console.log(localData);
 
+
             // Send response immediately to prevent chrome.runtime.lastError
             sendResponse({ success: true });
-
-            // The popup component will handle the actual data fetching from Firestore
         });
-        return true;
     }
 
-    // Handle other message types as before
-    if (message.type === 'togglePause') {
-        // Existing code...
-    } else if (message.type === 'forceSync') {
-        // Handle force sync
-        const todayKey = getTodayKey();
-        chrome.storage.local.get([todayKey], (result) => {
-            const siteData = result[todayKey] || {};
-            if (Object.keys(siteData).length > 0) {
-                saveToFirestoreViaPopup(siteData);
-                console.log('[InsightBoard] Manual sync triggered');
-            }
-            sendResponse({ success: true });
-        });
-        return true;
-    }
-    return true;
+    return true; // Keep the message channel open for async responses
 });
 
+// Regular save interval
 setInterval(saveTimeSpent, 30000);
 
+// Initialize tracking on startup
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs.length > 0 && tabs[0].id) {
         updateCurrentDomain(tabs[0].id!);
     }
 });
 
-// Midnight reset and Firestore sync
+// The definitive midnight reset handler
 const scheduleMidnightReset = () => {
-    const now = new Date();
-    const millisTillMidnight = new Date(
-        now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0
-    ).getTime() - now.getTime();
+    // Clear any existing timer to prevent duplicates
+    if (midnightTimer) {
+        clearTimeout(midnightTimer);
+    }
 
-    setTimeout(() => {
-        const todayKey = getTodayKey();
+    const millisTillMidnight = getMillisToMidnight();
+    console.log(`[InsightBoard] Scheduled midnight reset in ${Math.round(millisTillMidnight / 1000 / 60)} minutes`);
 
-        chrome.storage.local.get([todayKey], (result) => {
-            const siteData = result[todayKey] || {};
-            if (Object.keys(siteData).length > 0) {
-                saveToFirestoreViaPopup(siteData);
+    midnightTimer = setTimeout(() => {
+        const oldKey = getTodayKey(); // This is still "yesterday" at this point
+
+        console.log(`[InsightBoard] Midnight reset triggered for ${oldKey}`);
+
+        // Save any pending data
+        saveTimeSpent();
+
+        chrome.storage.local.get([oldKey], (result) => {
+            const yesterdayData = result[oldKey] || {};
+
+            if (Object.keys(yesterdayData).length > 0) {
+                console.log(`[InsightBoard] Saving ${oldKey} data before reset`);
+                saveToFirestoreViaPopup(yesterdayData);
             }
 
-            chrome.storage.local.remove(todayKey, () => {
-                chrome.storage.local.set({ [getTodayKey()]: {} });
-                console.log('[InsightBoard] New day started');
-            });
-        });
+            // After a small delay to ensure sync completes
+            setTimeout(() => {
+                // Now create the new day's key
+                const newKey = getTodayKey(); // This will now be "today"
 
-        scheduleMidnightReset(); // Reschedule
+                // Create empty storage for the new day
+                chrome.storage.local.set({ [newKey]: {} }, () => {
+                    console.log(`[InsightBoard] Created new storage for ${newKey}`);
+
+                    // Notify popup components about the day change
+                    chrome.runtime.sendMessage({
+                        type: MessageType.DAY_CHANGED,
+                        payload: { oldKey, newKey }
+                    });
+                });
+
+                // Schedule the next reset
+                scheduleMidnightReset();
+            }, 2000);
+        });
     }, millisTillMidnight);
 };
 
+// Start the midnight reset scheduler
 scheduleMidnightReset();
 
 console.log('[InsightBoard] Background script running');

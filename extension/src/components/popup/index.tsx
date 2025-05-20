@@ -3,10 +3,42 @@ import SiteList from '../site-list';
 import TrackingButton from '../tracking-btn';
 import TimeTracker from '../time-tracker';
 import StatusBadge from '../status-badge';
-import { MoonIcon, SunIcon, LogOutIcon, RefreshCcwIcon, BarChart2 } from 'lucide-react';
+import { MoonIcon, SunIcon, LogOutIcon, BarChart2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+
+
+const MessageType = {
+    TOGGLE_PAUSE: 'togglePause',
+    FORCE_SYNC: 'forceSync',
+    USER_LOGGED_IN: 'userLoggedIn',
+    DAY_CHANGED: 'dayChanged',
+    SYNC_COMPLETE: 'syncComplete'
+};
+
+const getLocalDate = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getTodayKey = (): string => {
+    return `usage-${getLocalDate()}`;
+};
+
+const getTodayDocId = (userId: string): string => {
+    return `${userId}_${getLocalDate()}`;
+};
+
+const formatDisplayDate = (dateKey: string): string => {
+    const datePart = dateKey.replace('usage-', '');
+    const [year, month, day] = datePart.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 export default function Popup() {
     const [stats, setStats] = useState<any>({});
@@ -15,16 +47,22 @@ export default function Popup() {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [darkMode, setDarkMode] = useState<boolean>(false);
     const [userEmail, setUserEmail] = useState<string | null>(null);
-
-    const getTodayKey = () => `usage-${new Date().toISOString().split('T')[0]}`;
+    const [currentDate, setCurrentDate] = useState<string>('');
 
     useEffect(() => {
         const todayKey = getTodayKey();
+        setCurrentDate(formatDisplayDate(todayKey));
 
         const fetchData = async () => {
             if (typeof chrome !== 'undefined' && chrome.storage?.local) {
                 chrome.storage.local.get([todayKey, 'paused', 'darkMode'], async (result) => {
+                    // Create today's key if it doesn't exist
                     let siteData = result[todayKey] || {};
+                    if (!result[todayKey]) {
+                        chrome.storage.local.set({ [todayKey]: {} });
+                        console.log(`[Popup] Created new storage for ${todayKey}`);
+                    }
+
                     const pausedStatus = result['paused'] || false;
                     const darkModeStatus = result['darkMode'] || false;
 
@@ -32,9 +70,8 @@ export default function Popup() {
                     if (user) {
                         setUserEmail(user.email);
 
-                        // Get Firestore data - using the correct document ID format
-                        const today = new Date().toISOString().split('T')[0];
-                        const docId = `${user.uid}_${today}`;
+                        // Get Firestore data using consistent ID format
+                        const docId = getTodayDocId(user.uid);
                         const usageRef = doc(db, 'usage', docId);
 
                         try {
@@ -45,17 +82,21 @@ export default function Popup() {
                                 const firestoreSites = firestoreData?.sites || {};
                                 console.log("Firestore data retrieved:", firestoreSites);
 
-                                // Merge Firestore sites data with local storage data
+                                // Merge data with local storage - only take higher values
+                                let dataChanged = false;
                                 Object.entries(firestoreSites).forEach(([site, time]) => {
                                     if (!siteData[site] || (time as number) > siteData[site]) {
                                         siteData[site] = time as number;
+                                        dataChanged = true;
                                     }
                                 });
 
-                                // Update local storage with merged data
-                                chrome.storage.local.set({ [todayKey]: siteData }, () => {
-                                    console.log("Local storage updated with Firestore data");
-                                });
+                                // Only update if data changed
+                                if (dataChanged) {
+                                    chrome.storage.local.set({ [todayKey]: siteData }, () => {
+                                        console.log("Local storage updated with Firestore data");
+                                    });
+                                }
                             }
                         } catch (err) {
                             console.error('[Fetch] Failed to load Firestore data:', err);
@@ -76,112 +117,113 @@ export default function Popup() {
         };
 
         fetchData();
+
+        // Clean up outdated keys
         handleOutdatedKeys();
-        scheduleMidnightReset();
+
+        // Listen for data updates from background script
+        const handleMessages = (message: any, _: any, sendResponse: any) => {
+            if (message.type === MessageType.SYNC_COMPLETE) {
+                console.log('[Popup] Received sync complete notification, refreshing data');
+                fetchData();
+                sendResponse({ success: true });
+            } else if (message.type === MessageType.DAY_CHANGED) {
+                console.log('[Popup] Day changed notification received, reloading...');
+                window.location.reload();
+                sendResponse({ success: true });
+            }
+            return true;
+        };
+
+        chrome.runtime.onMessage.addListener(handleMessages);
+
+        // Check for date changes every minute
+        const dateCheckInterval = setInterval(() => {
+            const newTodayKey = getTodayKey();
+            if (newTodayKey !== todayKey) {
+                console.log('[Popup] Date changed, reloading...');
+                window.location.reload();
+            }
+        }, 60000);
+
+        return () => {
+            clearInterval(dateCheckInterval);
+            chrome.runtime.onMessage.removeListener(handleMessages);
+        };
     }, []);
 
     useEffect(() => {
         const handleSaveRequest = async (message: any, _: any, sendResponse: any) => {
-            if (message.type === 'saveToFirestore') {
-                const { key, sites } = message.payload;
+            if (message.type === MessageType.FORCE_SYNC) {
+                const todayKey = getTodayKey();
                 const user = auth.currentUser;
 
                 if (user) {
-                    const today = key.replace('usage-', '');
-                    const docId = `${user.uid}_${today}`;
-                    const usageRef = doc(db, 'usage', docId);
+                    chrome.storage.local.get([todayKey], async (result) => {
+                        const sites = result[todayKey] || {};
 
-                    try {
-                        // Calculate total time
-                        const totalTime = Object.values(sites).reduce((a: any, b: any) => a + b, 0);
+                        if (Object.keys(sites).length === 0) {
+                            sendResponse({ success: true, message: "No data to sync" });
+                            return;
+                        }
 
-                        // Save to Firestore
-                        await setDoc(usageRef, {
-                            date: today,
-                            sites: sites,
-                            totalTime: totalTime,
-                            userId: user.uid
-                        }, { merge: true });
+                        const docId = getTodayDocId(user.uid);
+                        const usageRef = doc(db, 'usage', docId);
 
-                        console.log('[Popup] Data saved to Firestore');
-                        sendResponse({ success: true });
-                    } catch (err) {
-                        console.error('[Popup] Firestore save error:', err);
-                        sendResponse({ success: false, error: err });
-                    }
+                        try {
+                            // Calculate total time
+                            const totalTime = Object.values(sites).reduce((a: any, b: any) => a + b, 0);
+
+                            // Save to Firestore
+                            await setDoc(usageRef, {
+                                date: docId.split('_')[1],
+                                sites: sites,
+                                totalTime: totalTime,
+                                userId: user.uid,
+                                lastUpdated: new Date().toISOString()
+                            }, { merge: true });
+
+                            console.log('[Popup] Data saved to Firestore');
+
+                            // Update UI with latest data
+                            setStats(sites);
+                            setTotal(totalTime);
+
+                            sendResponse({ success: true });
+                        } catch (err) {
+                            console.error('[Popup] Firestore save error:', err);
+                            sendResponse({ success: false, error: err });
+                        }
+                    });
+                    return true;
                 } else {
                     console.warn('[Popup] No authenticated user');
                     sendResponse({ success: false, error: 'No user' });
                 }
             }
-
-            return true; // Required for async sendResponse
+            return true;
         };
 
         chrome.runtime.onMessage.addListener(handleSaveRequest);
         return () => chrome.runtime.onMessage.removeListener(handleSaveRequest);
     }, []);
 
-    // Update the scheduleMidnightReset function in Popup.tsx
-    const scheduleMidnightReset = () => {
-        const now = new Date();
-        const millisTillMidnight = new Date(
-            now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0
-        ).getTime() - now.getTime();
-
-        setTimeout(() => {
-            const todayKey = getTodayKey();
-            chrome.storage.local.get([todayKey], async (result) => {
-                const siteData = result[todayKey] || {};
-                const user = auth.currentUser;
-
-                if (user) {
-                    const today = new Date().toISOString().split('T')[0];
-                    const docId = `${user.uid}_${today}`;
-                    const usageRef = doc(db, 'usage', docId);
-
-                    try {
-                        // Calculate total time
-                        const totalTime = Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0);
-
-                        // Save to Firestore
-                        await setDoc(usageRef, {
-                            date: today,
-                            sites: siteData,
-                            totalTime: totalTime,
-                            userId: user.uid
-                        }, { merge: true });
-
-                        console.log('[Midnight] Data saved to Firestore');
-                        chrome.storage.local.remove(todayKey, () => {
-                            const newKey = getTodayKey();
-                            chrome.storage.local.set({ [newKey]: {} });
-                            setStats({});
-                            setTotal(0);
-                            console.log('[Midnight] Local storage cleared for new day');
-                        });
-                    } catch (err) {
-                        console.error('[Midnight] Failed to save:', err);
-                    }
-                }
-            });
-
-            scheduleMidnightReset(); // Reschedule for next day
-        }, millisTillMidnight);
-    };
-
-    // 🔎 Remove any outdated day keys if app opened after midnight
+    // Remove any outdated day keys
     const handleOutdatedKeys = () => {
         const todayKey = getTodayKey();
         chrome.storage.local.get(null, (result) => {
             const keys = Object.keys(result).filter(key => key.startsWith('usage-') && key !== todayKey);
-            chrome.storage.local.remove(keys);
+            if (keys.length > 0) {
+                chrome.storage.local.remove(keys, () => {
+                    console.log(`[Popup] Removed ${keys.length} outdated storage keys`);
+                });
+            }
         });
     };
 
     const togglePause = () => {
         const newStatus = !isPaused;
-        chrome.runtime?.sendMessage({ type: 'togglePause', value: newStatus }, (response) => {
+        chrome.runtime?.sendMessage({ type: MessageType.TOGGLE_PAUSE, value: newStatus }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error('[Popup] Runtime error:', chrome.runtime.lastError.message);
                 return;
@@ -205,20 +247,20 @@ export default function Popup() {
             const user = auth.currentUser;
 
             if (user) {
-                const today = new Date().toISOString().split('T')[0];
-                const docId = `${user.uid}_${today}`;
+                const docId = getTodayDocId(user.uid);
                 const usageRef = doc(db, 'usage', docId);
 
                 try {
                     // Calculate total time
                     const totalTime = Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0);
 
-                    // Save to Firestore using the document ID format from your database
+                    // Save to Firestore
                     await setDoc(usageRef, {
-                        date: today,
+                        date: docId.split('_')[1],
                         sites: siteData,
                         totalTime: totalTime,
-                        userId: user.uid
+                        userId: user.uid,
+                        lastUpdated: new Date().toISOString()
                     }, { merge: true });
 
                     chrome.storage.local.clear(async () => {
@@ -231,16 +273,6 @@ export default function Popup() {
                     await signOut(auth);
                     window.location.reload();
                 }
-            }
-        });
-    };
-
-    const syncNow = () => {
-        chrome.runtime?.sendMessage({ type: 'forceSync' }, (_) => {
-            if (chrome.runtime.lastError) {
-                console.error('Sync failed:', chrome.runtime.lastError.message);
-            } else {
-                console.log('[Popup] Manual sync triggered');
             }
         });
     };
@@ -286,9 +318,6 @@ export default function Popup() {
                 <div className="mt-4">
                     <div className="flex justify-between items-center mb-2">
                         <h2 className="font-medium text-sm">Top Sites Today</h2>
-                        <button onClick={syncNow} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-                            <RefreshCcwIcon size={14} /> Sync Now
-                        </button>
                     </div>
                     <SiteList stats={stats} />
                 </div>
@@ -296,7 +325,7 @@ export default function Popup() {
 
             {/* Footer */}
             <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-800">
-                <span>{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                <span>{currentDate}</span>
                 <button onClick={handleLogout} className="text-red-500 flex items-center gap-1 hover:underline">
                     <LogOutIcon size={14} /> Logout
                 </button>

@@ -6,7 +6,7 @@ import StatusBadge from '../status-badge';
 import { MoonIcon, SunIcon, LogOutIcon, RefreshCcwIcon, BarChart2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 export default function Popup() {
     const [stats, setStats] = useState<any>({});
@@ -16,88 +16,225 @@ export default function Popup() {
     const [darkMode, setDarkMode] = useState<boolean>(false);
     const [userEmail, setUserEmail] = useState<string | null>(null);
 
-    useEffect(() => {
-        const todayKey = `usage-${new Date().toISOString().split('T')[0]}`;
+    const getTodayKey = () => `usage-${new Date().toISOString().split('T')[0]}`;
 
-        // Fetch usage data (either from local storage or from Firestore)
-        const fetchData = () => {
+    useEffect(() => {
+        const todayKey = getTodayKey();
+
+        const fetchData = async () => {
             if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-                chrome.storage.local.get([todayKey, 'paused', 'darkMode'], (result) => {
-                    const siteData = result[todayKey] || {};  // Site stats for the day
+                chrome.storage.local.get([todayKey, 'paused', 'darkMode'], async (result) => {
+                    let siteData = result[todayKey] || {};
                     const pausedStatus = result['paused'] || false;
                     const darkModeStatus = result['darkMode'] || false;
+
+                    const user = auth.currentUser;
+                    if (user) {
+                        setUserEmail(user.email);
+
+                        // Get Firestore data - using the correct document ID format
+                        const today = new Date().toISOString().split('T')[0];
+                        const docId = `${user.uid}_${today}`;
+                        const usageRef = doc(db, 'usage', docId);
+
+                        try {
+                            const usageSnap = await getDoc(usageRef);
+
+                            if (usageSnap.exists()) {
+                                const firestoreData = usageSnap.data();
+                                const firestoreSites = firestoreData?.sites || {};
+                                console.log("Firestore data retrieved:", firestoreSites);
+
+                                // Merge Firestore sites data with local storage data
+                                Object.entries(firestoreSites).forEach(([site, time]) => {
+                                    if (!siteData[site] || (time as number) > siteData[site]) {
+                                        siteData[site] = time as number;
+                                    }
+                                });
+
+                                // Update local storage with merged data
+                                chrome.storage.local.set({ [todayKey]: siteData }, () => {
+                                    console.log("Local storage updated with Firestore data");
+                                });
+                            }
+                        } catch (err) {
+                            console.error('[Fetch] Failed to load Firestore data:', err);
+                        }
+                    }
 
                     setStats(siteData);
                     setIsPaused(pausedStatus);
                     setDarkMode(darkModeStatus);
-                    setTotal(Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0)); // Total time spent today
+                    setTotal(Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0));
                     setIsLoading(false);
-
-                    // Save usage data to Firestore
-                    const user = auth.currentUser;
-                    if (user) {
-                        const today = new Date().toISOString().split('T')[0]; // '2025-05-11'
-                        const usageRef = doc(db, 'users', user.uid, 'usage', today);
-
-                        setDoc(usageRef, {
-                            userId: user.uid,
-                            date: today,
-                            sites: siteData,  // Usage data for sites
-                            totalTime: Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0), // Total time spent today
-                        }, { merge: true }).catch((err) => {
-                            console.error('Error saving usage data:', err);
-                        });
-                    }
                 });
             } else {
-                console.error('[Popup] chrome.storage.local is not available. Please use inside Chrome Extension.');
+                console.error('[Popup] chrome.storage.local is not available.');
                 setStats({});
                 setIsLoading(false);
             }
         };
 
         fetchData();
-
-        // Set Firebase user email
-        const user = auth.currentUser;
-        if (user) {
-            setUserEmail(user.email);
-        }
+        handleOutdatedKeys();
+        scheduleMidnightReset();
     }, []);
 
-    // Toggle pause status
+    useEffect(() => {
+        const handleSaveRequest = async (message: any, _: any, sendResponse: any) => {
+            if (message.type === 'saveToFirestore') {
+                const { key, sites } = message.payload;
+                const user = auth.currentUser;
+
+                if (user) {
+                    const today = key.replace('usage-', '');
+                    const docId = `${user.uid}_${today}`;
+                    const usageRef = doc(db, 'usage', docId);
+
+                    try {
+                        // Calculate total time
+                        const totalTime = Object.values(sites).reduce((a: any, b: any) => a + b, 0);
+
+                        // Save to Firestore
+                        await setDoc(usageRef, {
+                            date: today,
+                            sites: sites,
+                            totalTime: totalTime,
+                            userId: user.uid
+                        }, { merge: true });
+
+                        console.log('[Popup] Data saved to Firestore');
+                        sendResponse({ success: true });
+                    } catch (err) {
+                        console.error('[Popup] Firestore save error:', err);
+                        sendResponse({ success: false, error: err });
+                    }
+                } else {
+                    console.warn('[Popup] No authenticated user');
+                    sendResponse({ success: false, error: 'No user' });
+                }
+            }
+
+            return true; // Required for async sendResponse
+        };
+
+        chrome.runtime.onMessage.addListener(handleSaveRequest);
+        return () => chrome.runtime.onMessage.removeListener(handleSaveRequest);
+    }, []);
+
+    // Update the scheduleMidnightReset function in Popup.tsx
+    const scheduleMidnightReset = () => {
+        const now = new Date();
+        const millisTillMidnight = new Date(
+            now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0
+        ).getTime() - now.getTime();
+
+        setTimeout(() => {
+            const todayKey = getTodayKey();
+            chrome.storage.local.get([todayKey], async (result) => {
+                const siteData = result[todayKey] || {};
+                const user = auth.currentUser;
+
+                if (user) {
+                    const today = new Date().toISOString().split('T')[0];
+                    const docId = `${user.uid}_${today}`;
+                    const usageRef = doc(db, 'usage', docId);
+
+                    try {
+                        // Calculate total time
+                        const totalTime = Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0);
+
+                        // Save to Firestore
+                        await setDoc(usageRef, {
+                            date: today,
+                            sites: siteData,
+                            totalTime: totalTime,
+                            userId: user.uid
+                        }, { merge: true });
+
+                        console.log('[Midnight] Data saved to Firestore');
+                        chrome.storage.local.remove(todayKey, () => {
+                            const newKey = getTodayKey();
+                            chrome.storage.local.set({ [newKey]: {} });
+                            setStats({});
+                            setTotal(0);
+                            console.log('[Midnight] Local storage cleared for new day');
+                        });
+                    } catch (err) {
+                        console.error('[Midnight] Failed to save:', err);
+                    }
+                }
+            });
+
+            scheduleMidnightReset(); // Reschedule for next day
+        }, millisTillMidnight);
+    };
+
+    // 🔎 Remove any outdated day keys if app opened after midnight
+    const handleOutdatedKeys = () => {
+        const todayKey = getTodayKey();
+        chrome.storage.local.get(null, (result) => {
+            const keys = Object.keys(result).filter(key => key.startsWith('usage-') && key !== todayKey);
+            chrome.storage.local.remove(keys);
+        });
+    };
+
     const togglePause = () => {
         const newStatus = !isPaused;
-        console.log('[Popup] Toggling pause:', newStatus);
-      
         chrome.runtime?.sendMessage({ type: 'togglePause', value: newStatus }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('[Popup] Runtime error:', chrome.runtime.lastError.message);
-            return;
-          }
-      
-          console.log('[Popup] togglePause response:', response);
-          if (response?.success) {
-            setIsPaused(response.paused); // ensure state syncs with background
-          }
+            if (chrome.runtime.lastError) {
+                console.error('[Popup] Runtime error:', chrome.runtime.lastError.message);
+                return;
+            }
+            if (response?.success) {
+                setIsPaused(response.paused);
+            }
         });
-      };
-      
+    };
 
-    // Toggle dark mode
     const toggleDarkMode = () => {
         const newStatus = !darkMode;
         setDarkMode(newStatus);
         chrome.storage?.local.set({ darkMode: newStatus });
     };
 
-    // Handle user logout
     const handleLogout = async () => {
-        await signOut(auth);
-        window.location.reload();  // Trigger app to show auth screen
+        const todayKey = getTodayKey();
+        chrome.storage.local.get([todayKey], async (result) => {
+            const siteData = result[todayKey] || {};
+            const user = auth.currentUser;
+
+            if (user) {
+                const today = new Date().toISOString().split('T')[0];
+                const docId = `${user.uid}_${today}`;
+                const usageRef = doc(db, 'usage', docId);
+
+                try {
+                    // Calculate total time
+                    const totalTime = Object.values(siteData).reduce((acc: any, ms: any) => acc + ms, 0);
+
+                    // Save to Firestore using the document ID format from your database
+                    await setDoc(usageRef, {
+                        date: today,
+                        sites: siteData,
+                        totalTime: totalTime,
+                        userId: user.uid
+                    }, { merge: true });
+
+                    chrome.storage.local.clear(async () => {
+                        console.log('[Logout] Local storage cleared');
+                        await signOut(auth);
+                        window.location.reload();
+                    });
+                } catch (err) {
+                    console.error('[Logout] Error saving data:', err);
+                    await signOut(auth);
+                    window.location.reload();
+                }
+            }
+        });
     };
 
-    // Manually trigger sync
     const syncNow = () => {
         chrome.runtime?.sendMessage({ type: 'forceSync' }, (_) => {
             if (chrome.runtime.lastError) {
@@ -108,7 +245,6 @@ export default function Popup() {
         });
     };
 
-    // Loading state
     if (isLoading) {
         return (
             <div className="p-4 w-full h-56 flex items-center justify-center bg-white dark:bg-gray-900 rounded-xl shadow-lg animate-pulse">
@@ -135,7 +271,6 @@ export default function Popup() {
                         </button>
                     </div>
                 </div>
-
                 {userEmail && (
                     <div className="text-xs mt-1 text-gray-500 dark:text-gray-400 truncate">
                         Signed in as: <span className="font-medium">{userEmail}</span>

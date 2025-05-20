@@ -1,7 +1,3 @@
-
-
-// Background script for InsightBoard extension
-
 let currentDomain: string | null = null;
 let startTime: number | null = null;
 let isPaused: boolean = false;
@@ -13,7 +9,7 @@ chrome.storage.local.get(['paused'], (result) => {
 });
 
 const getTodayKey = (): string => {
-    return `usage-${new Date().toISOString().split('T')[0]}`; // e.g., "usage-2025-05-08"
+    return `usage-${new Date().toISOString().split('T')[0]}`;
 };
 
 const getDomainFromUrl = (url: string): string => {
@@ -24,13 +20,12 @@ const getDomainFromUrl = (url: string): string => {
     }
 };
 
-// Save the time spent on the current domain
 const saveTimeSpent = (): void => {
     if (!currentDomain || !startTime || isPaused) return;
 
     const now = Date.now();
     const duration = now - startTime;
-    if (duration < 1000) return; // Ignore very short durations (< 1 second)
+    if (duration < 1000) return;
 
     const todayKey = getTodayKey();
 
@@ -46,9 +41,23 @@ const saveTimeSpent = (): void => {
     });
 };
 
-// Handle tab changes
+const saveToFirestoreViaPopup = (data: Record<string, number>) => {
+    chrome.runtime.sendMessage({
+        type: 'saveToFirestore',
+        payload: {
+            key: getTodayKey(),
+            sites: data,
+        }
+    }, (res) => {
+        if (chrome.runtime.lastError) {
+            console.error('[Background] Save failed:', chrome.runtime.lastError.message);
+        } else {
+            console.log('[Background] Save message sent:', res);
+        }
+    });
+};
+
 const updateCurrentDomain = (tabId: number): void => {
-    // Save current domain time before switching
     saveTimeSpent();
 
     chrome.tabs.get(tabId, (tab) => {
@@ -58,17 +67,11 @@ const updateCurrentDomain = (tabId: number): void => {
             return;
         }
 
-        if (tab && tab.url) {
-            currentDomain = getDomainFromUrl(tab.url);
-            startTime = Date.now();
-            console.log(`[InsightBoard] Now tracking: ${currentDomain}`);
-        } else {
-            currentDomain = null;
-        }
+        currentDomain = getDomainFromUrl(tab.url);
+        startTime = Date.now();
+        console.log(`[InsightBoard] Now tracking: ${currentDomain}`);
     });
 };
-
-// Set up event listeners
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
     updateCurrentDomain(activeInfo.tabId);
@@ -100,7 +103,6 @@ chrome.idle.onStateChanged.addListener((state) => {
     }
 });
 
-// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
     if (message.type === 'togglePause') {
         isPaused = message.value;
@@ -111,8 +113,7 @@ chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
             currentDomain = null;
             startTime = null;
             console.log('[InsightBoard] Tracking paused');
-        } else if (!isPaused) {
-            // Resume tracking current tab
+        } else {
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs.length > 0 && tabs[0].url) {
                     currentDomain = getDomainFromUrl(tabs[0].url);
@@ -124,17 +125,80 @@ chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
 
         sendResponse({ success: true, paused: isPaused });
     }
-    return true; // Required for async sendResponse
+    return true;
 });
 
-// Set up periodic saving (every 30 seconds)
+// Listen for login events
+chrome.runtime.onMessage.addListener((message: any, _, sendResponse) => {
+    if (message.type === 'userLoggedIn') {
+        // Force a sync of local data with Firestore data
+        const todayKey = getTodayKey();
+        chrome.storage.local.get([todayKey], (result) => {
+            const localData = result[todayKey] || {};
+            console.log('[InsightBoard] User logged in, syncing data');
+            console.log(localData);
+
+            // Send response immediately to prevent chrome.runtime.lastError
+            sendResponse({ success: true });
+
+            // The popup component will handle the actual data fetching from Firestore
+        });
+        return true;
+    }
+
+    // Handle other message types as before
+    if (message.type === 'togglePause') {
+        // Existing code...
+    } else if (message.type === 'forceSync') {
+        // Handle force sync
+        const todayKey = getTodayKey();
+        chrome.storage.local.get([todayKey], (result) => {
+            const siteData = result[todayKey] || {};
+            if (Object.keys(siteData).length > 0) {
+                saveToFirestoreViaPopup(siteData);
+                console.log('[InsightBoard] Manual sync triggered');
+            }
+            sendResponse({ success: true });
+        });
+        return true;
+    }
+    return true;
+});
+
 setInterval(saveTimeSpent, 30000);
 
-console.log('[InsightBoard] Background script running');
-
-// Initialize tracking for the current tab
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs.length > 0 && tabs[0].id) {
         updateCurrentDomain(tabs[0].id!);
     }
 });
+
+// Midnight reset and Firestore sync
+const scheduleMidnightReset = () => {
+    const now = new Date();
+    const millisTillMidnight = new Date(
+        now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0
+    ).getTime() - now.getTime();
+
+    setTimeout(() => {
+        const todayKey = getTodayKey();
+
+        chrome.storage.local.get([todayKey], (result) => {
+            const siteData = result[todayKey] || {};
+            if (Object.keys(siteData).length > 0) {
+                saveToFirestoreViaPopup(siteData);
+            }
+
+            chrome.storage.local.remove(todayKey, () => {
+                chrome.storage.local.set({ [getTodayKey()]: {} });
+                console.log('[InsightBoard] New day started');
+            });
+        });
+
+        scheduleMidnightReset(); // Reschedule
+    }, millisTillMidnight);
+};
+
+scheduleMidnightReset();
+
+console.log('[InsightBoard] Background script running');

@@ -1,19 +1,22 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 
 export interface TableColumn<T> {
     key: keyof T;
     title: string;
+    render?: (value: T[keyof T], row: T) => React.ReactNode; // optional custom render per cell
 }
 
 interface DataTableProps<T> {
     data: T[];
-    columns: TableColumn<T>[];
+    // columns: TableColumn<T>[];
+    columns: any[];
     searchable?: boolean;
 }
 
 const DataTable = <T extends Record<string, unknown>>({
+    data,
     columns,
     searchable = true,
 }: DataTableProps<T>) => {
@@ -29,6 +32,38 @@ const DataTable = <T extends Record<string, unknown>>({
             setSortDirection('asc');
         }
     };
+
+    const filteredData = useMemo(() => {
+        let filtered = data;
+        if (searchQuery.trim() !== '') {
+            const lower = searchQuery.toLowerCase();
+            filtered = filtered.filter((row) =>
+                columns.some((col) => {
+                    const val = row[col.key];
+                    return String(val).toLowerCase().includes(lower);
+                })
+            );
+        }
+
+        if (sortKey) {
+            filtered = [...filtered].sort((a, b) => {
+                const valA = a[sortKey];
+                const valB = b[sortKey];
+
+                if (valA == null) return 1;
+                if (valB == null) return -1;
+
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return sortDirection === 'asc' ? valA - valB : valB - valA;
+                }
+                return sortDirection === 'asc'
+                    ? String(valA).localeCompare(String(valB))
+                    : String(valB).localeCompare(String(valA));
+            });
+        }
+
+        return filtered;
+    }, [data, searchQuery, sortKey, sortDirection, columns]);
 
     return (
         <div className="w-full">
@@ -73,6 +108,33 @@ const DataTable = <T extends Record<string, unknown>>({
                             ))}
                         </tr>
                     </thead>
+                    <tbody>
+                        {filteredData.length === 0 ? (
+                            <tr>
+                                <td colSpan={columns.length} className="py-4 text-center text-gray-500">
+                                    No matching records found.
+                                </td>
+                            </tr>
+                        ) : (
+                            filteredData.map((row, idx) => (
+                                <tr
+                                    key={idx}
+                                    className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                                >
+                                    {columns.map((col) => (
+                                        <td
+                                            key={String(col.key)}
+                                            className="py-2 px-4 text-sm text-gray-700"
+                                        >
+                                            {col.render
+                                                ? col.render(row[col.key], row)
+                                                : String(row[col.key])}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
                 </table>
             </div>
         </div>

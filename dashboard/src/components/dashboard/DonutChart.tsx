@@ -20,59 +20,32 @@ const DonutChart: React.FC<DonutChartProps> = ({
 }) => {
     const chartRef = useRef<SVGSVGElement>(null);
 
+    const center = size / 2;
+    const radius = (size - thickness) / 2;
+    const circumference = 2 * Math.PI * radius;
+
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    let cumulativePercent = 0;
+
+    // Create segments with path and strokeDashoffset values
+    const segments = data.map((item) => {
+        const percentage = total > 0 ? item.value / total : 0;
+        const startPercent = cumulativePercent;
+        cumulativePercent += percentage;
+        return { ...item, percentage, startPercent };
+    });
+
     useEffect(() => {
         if (!chartRef.current) return;
 
         const paths = chartRef.current.querySelectorAll('.donut-segment');
 
         paths.forEach((path, i) => {
-            // Animate each segment with a delay
             setTimeout(() => {
-                (path as SVGElement).style.strokeDashoffset = '0';
+                (path as SVGCircleElement).style.strokeDashoffset = '0';
             }, i * 150);
         });
     }, [data]);
-
-    const center = size / 2;
-    const radius = (size - thickness) / 2;
-    const circumference = 2 * Math.PI * radius;
-
-    // Calculate percentages and starting positions
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-    let startAngle = 0;
-
-    const segments = data.map((item) => {
-        const percentage = total > 0 ? item.value / total : 0;
-        const dashArray = circumference;
-        const dashOffset = circumference * (1 - percentage);
-        const angle = percentage * 360;
-        const largeArc = angle > 180 ? 1 : 0;
-
-        // Calculate SVG arc path
-        const endAngle = startAngle + angle;
-        const startX = center + radius * Math.cos((startAngle - 90) * (Math.PI / 180));
-        const startY = center + radius * Math.sin((startAngle - 90) * (Math.PI / 180));
-        const endX = center + radius * Math.cos((endAngle - 90) * (Math.PI / 180));
-        const endY = center + radius * Math.sin((endAngle - 90) * (Math.PI / 180));
-
-        const pathData = `
-      M ${center} ${center}
-      L ${startX} ${startY}
-      A ${radius} ${radius} 0 ${largeArc} 1 ${endX} ${endY}
-      Z
-    `;
-
-        // Save the end angle as start for the next segment
-        startAngle = endAngle;
-
-        return {
-            ...item,
-            percentage,
-            dashArray,
-            dashOffset,
-            pathData,
-        };
-    });
 
     return (
         <div className="flex flex-col md:flex-row items-center justify-center gap-6">
@@ -95,20 +68,30 @@ const DonutChart: React.FC<DonutChartProps> = ({
                     />
 
                     {/* Data segments */}
-                    {segments.map((segment, i) => (
-                        <circle
-                            key={i}
-                            cx={center}
-                            cy={center}
-                            r={radius}
-                            fill="none"
-                            stroke={segment.color}
-                            strokeWidth={thickness}
-                            strokeDasharray={circumference}
-                            strokeDashoffset={circumference}
-                            className="donut-segment transition-all duration-1000 ease-in-out"
-                        />
-                    ))}
+                    {segments.map(({ color, percentage, startPercent }, i) => {
+                        const dashArray = circumference * percentage;
+                        const dashOffset = circumference * (1 - percentage);
+
+                        return (
+                            <circle
+                                key={i}
+                                className="donut-segment transition-all duration-1000 ease-in-out"
+                                cx={center}
+                                cy={center}
+                                r={radius}
+                                fill="none"
+                                stroke={color}
+                                strokeWidth={thickness}
+                                strokeDasharray={`${dashArray} ${circumference}`}
+                                strokeDashoffset={circumference}
+                                style={{
+                                    strokeDashoffset: circumference,
+                                    transition: 'stroke-dashoffset 1s ease-in-out',
+                                    transitionDelay: `${i * 150}ms`,
+                                }}
+                            />
+                        );
+                    })}
 
                     {/* Center hole */}
                     <circle
@@ -119,7 +102,7 @@ const DonutChart: React.FC<DonutChartProps> = ({
                     />
                 </svg>
 
-                {/* Percentage in the middle */}
+                {/* Percentage and label in center */}
                 <div
                     className="absolute inset-0 flex flex-col items-center justify-center transform rotate-0"
                     style={{ top: 0, left: 0 }}

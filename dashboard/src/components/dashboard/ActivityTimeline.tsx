@@ -1,14 +1,9 @@
-import { TimelineStatus } from '@/utils/constant';
 import React from 'react';
-import { CheckCircle, Clock, AlertTriangle, Info } from 'lucide-react'; // example icons
 
 interface TimelineItem {
-    id: string | number;
     title: string;
     description?: string;
-    time: string; // ISO string or formatted date string
-    icon?: React.ReactNode;
-    status?: TimelineStatus;
+    time: string;
 }
 
 interface ActivityTimelineProps {
@@ -16,33 +11,34 @@ interface ActivityTimelineProps {
 }
 
 const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items }) => {
-    const getStatusColor = (status?: TimelineItem['status']) => {
-        switch (status) {
-            case 'success':
-                return 'bg-emerald-500';
-            case 'warning':
-                return 'bg-amber-500';
-            case 'error':
-                return 'bg-rose-500';
-            case 'info':
-            default:
-                return 'bg-blue-500';
-        }
-    };
 
-    const getDefaultIcon = (status?: TimelineItem['status']) => {
-        switch (status) {
-            case 'success':
-                return <CheckCircle className="h-5 w-5 text-white" />;
-            case 'warning':
-                return <AlertTriangle className="h-5 w-5 text-white" />;
-            case 'error':
-                return <AlertTriangle className="h-5 w-5 text-white" />;
-            case 'info':
-            default:
-                return <Clock className="h-5 w-5 text-white" />;
-        }
-    };
+    // const getStatusColor = (status?: TimelineItem['status']) => {
+    //     switch (status) {
+    //         case 'success':
+    //             return 'bg-emerald-500';
+    //         case 'warning':
+    //             return 'bg-amber-500';
+    //         case 'error':
+    //             return 'bg-rose-500';
+    //         case 'info':
+    //         default:
+    //             return 'bg-blue-500';
+    //     }
+    // };
+
+    // const getDefaultIcon = (status?: TimelineItem['status']) => {
+    //     switch (status) {
+    //         case 'success':
+    //             return <CheckCircle className="h-5 w-5 text-white" />;
+    //         case 'warning':
+    //             return <AlertTriangle className="h-5 w-5 text-white" />;
+    //         case 'error':
+    //             return <AlertTriangle className="h-5 w-5 text-white" />;
+    //         case 'info':
+    //         default:
+    //             return <Clock className="h-5 w-5 text-white" />;
+    //     }
+    // };
 
     const formatTime = (timeStr: string) => {
         const date = new Date(timeStr);
@@ -62,7 +58,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items }) => {
                                 />
                             )}
                             <div className="relative flex space-x-3">
-                                <div>
+                                {/* <div>
                                     <div
                                         className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${getStatusColor(
                                             item.status
@@ -70,7 +66,7 @@ const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items }) => {
                                     >
                                         {item.icon || getDefaultIcon(item.status)}
                                     </div>
-                                </div>
+                                </div> */}
                                 <div className="min-w-0 flex-1 pt-1.5 flex justify-between">
                                     <div>
                                         <p className="text-sm font-semibold text-gray-900 cursor-pointer hover:underline">

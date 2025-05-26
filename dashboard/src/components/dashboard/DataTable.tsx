@@ -5,13 +5,11 @@ import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 export interface TableColumn<T> {
     key: keyof T;
     title: string;
-    render?: (value: T[keyof T], row: T) => React.ReactNode; // optional custom render per cell
 }
 
 interface DataTableProps<T> {
     data: T[];
-    // columns: TableColumn<T>[];
-    columns: any[];
+    columns: TableColumn<T>[];
     searchable?: boolean;
 }
 
@@ -109,31 +107,33 @@ const DataTable = <T extends Record<string, unknown>>({
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredData.length === 0 ? (
+                        {filteredData.length === 0 && (
                             <tr>
                                 <td colSpan={columns.length} className="py-4 text-center text-gray-500">
                                     No matching records found.
                                 </td>
                             </tr>
-                        ) : (
-                            filteredData.map((row, idx) => (
-                                <tr
-                                    key={idx}
-                                    className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                                >
-                                    {columns.map((col) => (
-                                        <td
-                                            key={String(col.key)}
-                                            className="py-2 px-4 text-sm text-gray-700"
-                                        >
-                                            {col.render
-                                                ? col.render(row[col.key], row)
-                                                : String(row[col.key])}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))
-                        )}
+                        ) 
+                        //  (
+                        //     filteredData.map((row, idx) => (
+                        //         <tr
+                        //             key={idx}
+                        //             className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        //         >
+                        //             {columns.map((col) => (
+                        //                 <td
+                        //                     key={String(col.key)}
+                        //                     className="py-2 px-4 text-sm text-gray-700"
+                        //                 >
+                        //                     {col.render
+                        //                         ? col.render(row[col.key], row)
+                        //                         : String(row[col.key])}
+                        //                 </td>
+                        //             ))}
+                        //         </tr>
+                        //     ))
+                        // )
+                        }
                     </tbody>
                 </table>
             </div>

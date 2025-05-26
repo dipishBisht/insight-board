@@ -68,9 +68,8 @@ const DonutChart: React.FC<DonutChartProps> = ({
                     />
 
                     {/* Data segments */}
-                    {segments.map(({ color, percentage, startPercent }, i) => {
+                    {segments.map(({ color, percentage}, i) => {
                         const dashArray = circumference * percentage;
-                        const dashOffset = circumference * (1 - percentage);
 
                         return (
                             <circle
